@@ -39,6 +39,8 @@ class Particle {
   public color: Rgba;
   public bottomLeft: Vec;
   public topRight: Vec;
+  public domainBL: Vec;
+  public domainTR: Vec;
   public width: number;
   public height: number;
   public pos: Vec;
@@ -49,12 +51,16 @@ class Particle {
     color: Rgba,
     bottomLeft: Vec,
     topRight: Vec,
+    domainBL: Vec,
+    domainTR: Vec,
     posFn: (p: Vec) => Vec
   ) {
     this.radius = radius;
     this.color = color;
     this.bottomLeft = bottomLeft;
     this.topRight = topRight;
+    this.domainBL = domainBL;
+    this.domainTR = domainTR;
     this.width = topRight.x - bottomLeft.x;
     this.height = -topRight.y + bottomLeft.y;
     this.pos = new Vec(
@@ -66,17 +72,17 @@ class Particle {
 
   update() {
     this.pos = this.posFn(this.pos);
-    if (this.pos.x < this.bottomLeft.x + this.radius) {
-      this.pos.x = this.topRight.x - this.radius;
+    if (this.pos.x < this.domainBL.x + this.radius) {
+      this.pos.x = this.domainTR.x - this.radius;
     }
-    if (this.pos.x > this.topRight.x - this.radius) {
-      this.pos.x = this.bottomLeft.x + this.radius;
+    if (this.pos.x > this.domainTR.x - this.radius) {
+      this.pos.x = this.domainBL.x + this.radius;
     }
-    if (this.pos.y > this.bottomLeft.y - this.radius) {
-      this.pos.y = this.topRight.y + this.radius;
+    if (this.pos.y > this.domainBL.y - this.radius) {
+      this.pos.y = this.domainTR.y + this.radius;
     }
-    if (this.pos.y < this.topRight.y + this.radius) {
-      this.pos.y = this.bottomLeft.y - this.radius;
+    if (this.pos.y < this.domainTR.y + this.radius) {
+      this.pos.y = this.domainBL.y - this.radius;
     }
   }
 
@@ -117,29 +123,52 @@ const studenttPosFn = (p: Vec) =>
 type Region = {
   x?: number;
   y?: number;
+  dx?: number;
+  dy?: number;
   w?: number;
   h?: number;
+  dw?: number;
+  dh?: number;
   radius?: number;
   count?: number;
   color?: Rgba;
   posFn?: (p: Vec) => Vec;
 };
 
-function region({
-  x = 0,
-  y = 300,
-  w = 500,
-  h = 300,
-  radius = 1,
-  count = 1000,
-  color = white(0.75),
-  posFn = simplePosFn,
-}: Region = {}): Particle[] {
+function region(
+  {
+    x = 0,
+    y = 300,
+    dx = x,
+    dy = y,
+    w = 500,
+    h = 300,
+    dw = w,
+    dh = h,
+    radius = 1,
+    count = 1000,
+    color = white(0.75),
+    posFn = simplePosFn,
+  }: Region = {},
+  free: boolean = false
+): Particle[] {
   let particles: Particle[] = [];
   for (let i = 0; i < count; i++) {
     let bottomLeft = new Vec(x, y);
     let topRight = new Vec(x + w, y - h);
-    particles.push(new Particle(radius, color, bottomLeft, topRight, posFn));
+    let domainBL = free ? new Vec(0, canvasSize.y) : new Vec(dx, dy);
+    let domainTR = free ? new Vec(canvasSize.x, 0) : new Vec(dx + dw, dy - dh);
+    particles.push(
+      new Particle(
+        radius,
+        color,
+        bottomLeft,
+        topRight,
+        domainBL,
+        domainTR,
+        posFn
+      )
+    );
   }
   return particles;
 }
@@ -163,7 +192,7 @@ function resizeCanvas() {
 
 function draw(particles: Particle[]) {
   if (!ctx) return;
-  ctx.fillStyle = "black  ";
+  ctx.fillStyle = new Rgba(0, 0, 0, 0.05).color();
   ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
 
   for (let p of particles) {
@@ -186,6 +215,8 @@ function setup() {
     return;
   }
   resizeCanvas();
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
 
   const swirlRegion = region({
     x: 200,
@@ -198,25 +229,31 @@ function setup() {
     posFn: cosPosFnXY,
   });
 
-  const ps2 = region({
-    x: 500,
-    y: 400,
-    w: 600,
-    h: 50,
-    radius: 3,
-    count: 1000,
-  });
+  const ps2 = region(
+    {
+      x: 500,
+      y: 400,
+      w: 600,
+      h: 50,
+      radius: 3,
+      count: 1000,
+    },
+    true
+  );
 
-  const ps2a = region({
-    x: 450,
-    y: 600,
-    w: 600,
-    h: 60,
-    radius: 1,
-    color: white(1),
-    count: 3000,
-    posFn: horizontalPosFn,
-  });
+  const ps2a = region(
+    {
+      x: 450,
+      y: 600,
+      w: 600,
+      h: 60,
+      radius: 1,
+      color: white(1),
+      count: 3000,
+      posFn: horizontalPosFn,
+    },
+    true
+  );
 
   const ps2b = region({
     x: 550,
@@ -225,31 +262,37 @@ function setup() {
     h: 50,
     radius: 1,
     color: white(0.75),
-    count: 3000,
+    count: 1000,
     posFn: verticalPosFn,
   });
 
-  const ps2c = region({
-    x: 600,
-    y: 1099,
-    w: 600,
-    h: 50,
-    radius: 1,
-    color: white(1),
-    count: 3000,
-    posFn: verticalPosFn,
-  });
+  const ps2c = region(
+    {
+      x: 600,
+      y: 1099,
+      w: 600,
+      h: 50,
+      radius: 1,
+      color: white(1),
+      count: 500,
+      posFn: verticalPosFn,
+    },
+    true
+  );
 
-  const bgRegion = region({
-    x: 0,
-    y: canvasSize.y,
-    w: canvasSize.x,
-    h: canvasSize.y,
-    radius: 1.5,
-    color: blue(1),
-    count: 500,
-    posFn: cosPosFnY,
-  });
+  const bgRegion = region(
+    {
+      x: 0,
+      y: canvasSize.y,
+      w: canvasSize.x,
+      h: canvasSize.y,
+      radius: 1.5,
+      color: blue(1),
+      count: 500,
+      posFn: cosPosFnY,
+    },
+    true
+  );
 
   const jitterRegionA = region({
     x: 600,
@@ -268,20 +311,38 @@ function setup() {
     w: 650,
     h: 450,
     radius: 1.5,
+    color: white(0.25),
     count: 5000,
     posFn: cosPosFnX,
   });
 
-  const ps5 = region({
-    x: 300,
-    y: 900,
-    w: 50,
-    h: 800,
-    radius: 1.5,
-    color: blue(0.5),
-    count: 2500,
-  });
-  const ps6 = region({
+  const ps5 = region(
+    {
+      x: 300,
+      y: 900,
+      w: 50,
+      h: 800,
+      radius: 1.5,
+      color: blue(0.5),
+      count: 2500,
+    },
+    true
+  );
+  const ps6 = region(
+    {
+      x: 250,
+      y: 900,
+      w: 800,
+      h: 50,
+      radius: 1.5,
+      color: blue(0.7),
+      count: 3000,
+      posFn: cosPosFnXY,
+    },
+    true
+  );
+
+  const ps6a = region({
     x: 250,
     y: 900,
     w: 800,
@@ -292,15 +353,18 @@ function setup() {
     posFn: cosPosFnXY,
   });
 
-  const cornerRegion = region({
-    x: 50,
-    y: 1225,
-    w: 350,
-    h: 350,
-    color: white(0.5),
-    count: 10000,
-    posFn: horizontalPosFn,
-  });
+  const cornerRegion = region(
+    {
+      x: 50,
+      y: 1225,
+      w: 350,
+      h: 350,
+      color: white(0.5),
+      count: 3000,
+      posFn: horizontalPosFn,
+    },
+    true
+  );
 
   const ps = [
     ...swirlRegion,
@@ -313,6 +377,7 @@ function setup() {
     ...jitterRegionB,
     ...ps5,
     ...ps6,
+    ...ps6a,
     ...cornerRegion,
   ];
 
