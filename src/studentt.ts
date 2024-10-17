@@ -1,3 +1,5 @@
+// From Claude Sonnet 3.5
+
 export class StudentTDistribution {
   private degreesOfFreedom: number;
 

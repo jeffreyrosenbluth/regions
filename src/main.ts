@@ -97,12 +97,12 @@ class Particle {
   }
 }
 
-// Particle position functions -----------------------------------------------------
+// Particle position functions -------------------------------------------------------
 const simplePosFn = (p: Vec) =>
   p.add(new Vec(3 * (0.5 - Math.random()), 3 * (0.5 - Math.random())));
 
-const cosPosFnY = (p: Vec) => p.add(new Vec(0, Math.cos(p.x / 100)));
-const cosPosFnX = (p: Vec) => p.add(new Vec(Math.cos(p.y / 100), 0));
+const cosPosFnY = (p: Vec) => p.add(new Vec(1, Math.cos(p.x / 100)));
+const cosPosFnX = (p: Vec) => p.add(new Vec(Math.cos(p.y / 100), 1));
 const cosPosFnXY = (p: Vec) =>
   p.add(new Vec(Math.cos(p.y / 100), Math.cos(p.x / 100)));
 
@@ -111,7 +111,7 @@ const verticalPosFn = (p: Vec) => p.add(new Vec(0, 1));
 
 const tDist = new StudentTDistribution(1.25);
 const studenttPosFn = (p: Vec) =>
-  p.add(new Vec(Math.abs(tDist.sample()), Math.abs(tDist.sample())));
+  p.add(new Vec(0.75 * tDist.sample(), 0.75 * tDist.sample()));
 // -----------------------------------------------------------------------------------
 
 type Region = {
@@ -173,8 +173,8 @@ function draw(particles: Particle[]) {
   window.requestAnimationFrame(() => draw(particles));
 }
 
-function pink(opacity: number) {
-  return new Rgba(255, 105, 180, opacity);
+function blue(opacity: number) {
+  return new Rgba(40, 125, 240, opacity);
 }
 
 function white(opacity: number) {
@@ -187,7 +187,7 @@ function setup() {
   }
   resizeCanvas();
 
-  const ps1 = region({
+  const swirlRegion = region({
     x: 200,
     y: 800,
     w: 600,
@@ -203,9 +203,8 @@ function setup() {
     y: 400,
     w: 600,
     h: 50,
-    radius: 1,
-    color: white(1),
-    count: 3000,
+    radius: 3,
+    count: 1000,
   });
 
   const ps2a = region({
@@ -216,7 +215,7 @@ function setup() {
     radius: 1,
     color: white(1),
     count: 3000,
-    posFn: verticalPosFn,
+    posFn: horizontalPosFn,
   });
 
   const ps2b = region({
@@ -225,41 +224,52 @@ function setup() {
     w: 600,
     h: 50,
     radius: 1,
+    color: white(0.75),
+    count: 3000,
+    posFn: verticalPosFn,
+  });
+
+  const ps2c = region({
+    x: 600,
+    y: 1099,
+    w: 600,
+    h: 50,
+    radius: 1,
     color: white(1),
     count: 3000,
-    posFn: simplePosFn,
+    posFn: verticalPosFn,
   });
 
-  const ps3 = region({
+  const bgRegion = region({
     x: 0,
     y: canvasSize.y,
     w: canvasSize.x,
     h: canvasSize.y,
-    radius: 3.5,
-    color: white(1),
+    radius: 1.5,
+    color: blue(1),
     count: 500,
-    posFn: cosPosFnX,
+    posFn: cosPosFnY,
   });
 
-  const ps3a = region({
-    x: 0,
-    y: canvasSize.y,
-    w: canvasSize.x,
-    h: canvasSize.y,
-    radius: 1.0,
-    color: white(1),
-    count: 1500,
-  });
-
-  const ps4 = region({
-    x: 650,
-    y: 500,
+  const jitterRegionA = region({
+    x: 600,
+    y: 550,
     w: 400,
     h: 400,
-    radius: 3.0,
-    color: pink(1),
-    count: 500,
+    radius: 4.0,
+    color: blue(0.8),
+    count: 1000,
     posFn: studenttPosFn,
+  });
+
+  const jitterRegionB = region({
+    x: 650,
+    y: 500,
+    w: 650,
+    h: 450,
+    radius: 1.5,
+    count: 5000,
+    posFn: cosPosFnX,
   });
 
   const ps5 = region({
@@ -268,40 +278,42 @@ function setup() {
     w: 50,
     h: 800,
     radius: 1.5,
-    color: pink(0.5),
+    color: blue(0.5),
     count: 2500,
   });
   const ps6 = region({
-    x: 300,
+    x: 250,
     y: 900,
     w: 800,
     h: 50,
-    color: pink(0.5),
-    count: 2500,
+    radius: 1.5,
+    color: blue(0.7),
+    count: 3000,
     posFn: cosPosFnXY,
   });
 
-  const ps7 = region({
+  const cornerRegion = region({
     x: 50,
-    y: 1250,
+    y: 1225,
     w: 350,
     h: 350,
     color: white(0.5),
-    count: 2500,
+    count: 10000,
     posFn: horizontalPosFn,
   });
 
   const ps = [
-    ...ps1,
+    ...swirlRegion,
     ...ps2,
     ...ps2a,
     ...ps2b,
-    ...ps3,
-    ...ps3a,
-    ...ps4,
+    ...ps2c,
+    ...bgRegion,
+    ...jitterRegionA,
+    ...jitterRegionB,
     ...ps5,
     ...ps6,
-    ...ps7,
+    ...cornerRegion,
   ];
 
   window.addEventListener("resize", () => resizeCanvas());
