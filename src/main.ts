@@ -1,7 +1,6 @@
 import "./style.css";
 import { Vec } from "./vec";
-import { StudentTDistribution } from "./studentt";
-import { Region } from "./core";
+import { Region, direction } from "./core";
 import { Pane } from "tweakpane";
 
 let id: number | undefined;
@@ -40,24 +39,38 @@ function setup() {
 
   const CONTROLS: Region = {
     visible: false,
-    bottomLeft: { x: 0, y: 250 },
-    size: { x: 250, y: 250 },
+    bottomLeft: { x: 0, y: 0 },
+    size: { x: canvasSize.x / 4, y: canvasSize.y / 4 },
     domain: "constrained",
     radius: 1,
-    count: 500,
+    count: 1000,
     posFn: "simple",
     direction: { x: 1, y: 0 },
     color: "#FFFFFFFF",
   };
 
-  const folders: Region[] = Array(17)
+  const dirs = ["simple", "cosY", "studentt", "cosX", "direction", "cosXY"];
+
+  let folders: Region[] = Array(16)
     .fill(null)
-    .map(() => ({
+    .map((_, index) => ({
       ...CONTROLS,
-      bottomLeft: { ...CONTROLS.bottomLeft },
+      bottomLeft: {
+        x: (canvasSize.x / 4) * (index % 4),
+        y: (canvasSize.y / 4) * Math.floor(1 + index / 4),
+      },
       size: { ...CONTROLS.size },
+      posFn: dirs[index % dirs.length],
       direction: { ...CONTROLS.direction },
     }));
+
+  folders.unshift({
+    ...CONTROLS,
+    bottomLeft: { x: 0, y: window.innerHeight },
+    size: { x: window.innerWidth, y: window.innerHeight },
+    posFn: "still",
+    radius: 1.5,
+  });
 
   folders.forEach((folderControls, i) => {
     let f = pane.addFolder({
@@ -117,6 +130,8 @@ function setup() {
     f.addBinding(folderControls, "color", { label: "Color", picker: "inline" });
   });
 
+  toggleGuiVisibility();
+
   document.body.appendChild(canvas);
 
   pane.on("change", () => {
@@ -127,28 +142,31 @@ function setup() {
     draw(ps, ctx, canvasSize);
   });
 
-  window.addEventListener("resize", () => resizeCanvas());
-}
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "v") {
+      const allVisible = folders.every((folder) => folder.visible);
+      toggleAllFoldersVisible(!allVisible); // Toggle based on current state
+    } else if (event.key === "c") {
+      toggleGuiVisibility();
+    }
+  });
 
-function direction(posFn: string, dir: { x: number; y: number }) {
-  switch (posFn) {
-    case "still":
-      return stillPosFn;
-    case "simple":
-      return simplePosFn;
-    case "studentt":
-      return studenttPosFn;
-    case "cosY":
-      return cosPosFnY;
-    case "cosX":
-      return cosPosFnX;
-    case "cosXY":
-      return cosPosFnXY;
-    case "direction":
-      return dirPosFn(dir.x, dir.y);
-    default:
-      return stillPosFn;
+  function toggleAllFoldersVisible(visible: boolean) {
+    folders.forEach((folder) => {
+      folder.visible = visible; // Set visible field to true/false
+    });
+    pane.refresh(); // Refreshes the UI to reflect the changes
   }
+
+  function toggleGuiVisibility() {
+    const paneElement = pane.element;
+    if (paneElement.style.display === "none") {
+      paneElement.style.display = "block"; // Show the pane
+    } else {
+      paneElement.style.display = "none"; // Hide the pane
+    }
+  }
+  window.addEventListener("resize", () => resizeCanvas());
 }
 
 class Particle {
@@ -220,27 +238,6 @@ class Particle {
   }
 }
 
-// Particle position functions -------------------------------------------------------
-const simplePosFn = (p: Vec) =>
-  p.add(new Vec(3 * (0.5 - Math.random()), 3 * (0.5 - Math.random())));
-
-const stillPosFn = (p: Vec) => p;
-
-const cosPosFnY = (p: Vec) => p.add(new Vec(1, Math.cos(p.x / 100)));
-const cosPosFnX = (p: Vec) => p.add(new Vec(Math.cos(p.y / 100), 1));
-const cosPosFnXY = (p: Vec) =>
-  p.add(new Vec(Math.cos(p.y / 100), Math.cos(p.x / 100)));
-
-const tDist = new StudentTDistribution(1.25);
-const studenttPosFn = (p: Vec) =>
-  p.add(new Vec(0.75 * tDist.sample(), 0.75 * tDist.sample()));
-
-function dirPosFn(x: number, y: number) {
-  let dir = new Vec(x, y);
-  return (p: Vec) => p.add(dir);
-}
-// -----------------------------------------------------------------------------------
-
 function particleBox(r: Region, canvasSize: Vec): Particle[] {
   if (!r.visible) return [];
   let particles: Particle[] = [];
@@ -276,154 +273,5 @@ function draw(
   }
   id = window.requestAnimationFrame(() => draw(particles, ctx, canvasSize));
 }
-
-// const swirlRegion = region({
-//   x: 300,
-//   y: 890,
-//   w: 600,
-//   h: 600,
-//   radius: 2,
-//   color: "white",
-//   count: 3000,
-//   posFn: cosPosFnXY,
-// });
-
-// const ps2 = region(
-//   {
-//     x: 500,
-//     y: 400,
-//     w: 600,
-//     h: 75,
-//     radius: 3,
-//     count: 400,
-//     posFn: dirPosFn(1, 0),
-//   },
-//   true
-// );
-
-// const ps2b = region(
-//   {
-//     x: 550,
-//     y: 1060,
-//     w: 600,
-//     h: 100,
-//     radius: 1.5,
-//     color: "white",
-//     count: 1000,
-//     posFn: dirPosFn(-1, 0),
-//   },
-//   true
-// );
-
-// const ps2c = region(
-//   {
-//     x: 600,
-//     y: 1099,
-//     w: 600,
-//     h: 50,
-//     radius: 1,
-//     color: "white",
-//     count: 500,
-//     posFn: dirPosFn(0, -1),
-//   },
-//   true
-// );
-
-// const bgRegion = region(
-//   {
-//     x: 0,
-//     y: canvasSize.y,
-//     w: canvasSize.x,
-//     h: canvasSize.y,
-//     radius: 1.5,
-//     color: "white",
-//     count: 700,
-//     posFn: stillPosFn,
-//   },
-//   true
-// );
-
-// const jitterRegionA = region({
-//   x: 0,
-//   y: 450,
-//   w: 450,
-//   h: 450,
-//   radius: 6.0,
-//   color: "white",
-//   count: 250,
-//   posFn: studenttPosFn,
-// });
-
-// const jitterRegionB = region({
-//   x: 650,
-//   y: 500,
-//   w: 650,
-//   h: 450,
-//   radius: 0.5,
-//   color: "white",
-//   count: 5000,
-//   posFn: cosPosFnX,
-// });
-
-// const ps5 = region(
-//   {
-//     x: 300,
-//     y: 900,
-//     w: 50,
-//     h: 800,
-//     radius: 1.5,
-//     color: "white",
-//     count: 2500,
-//   },
-//   true
-// );
-// const ps6 = region(
-//   {
-//     x: 250,
-//     y: 950,
-//     w: 800,
-//     h: 50,
-//     radius: 1.0,
-//     color: "white",
-//     count: 3000,
-//     posFn: cosPosFnXY,
-//   },
-//   true
-// );
-
-// const ps6a = region({
-//   x: 250,
-//   y: 950,
-//   w: 800,
-//   h: 50,
-//   radius: 1.5,
-//   color: "white",
-//   count: 500,
-//   posFn: cosPosFnXY,
-// });
-
-// const cornerRegion = region({
-//   x: 50,
-//   y: 1225,
-//   w: 350,
-//   h: 350,
-//   color: "white",
-//   count: 3000,
-//   posFn: dirPosFn(1, -0.25),
-// });
-
-// const ps = [
-//   ...swirlRegion,
-//   ...ps2,
-//   ...ps2b,
-//   ...ps2c,
-//   ...bgRegion,
-//   ...jitterRegionA,
-//   ...jitterRegionB,
-//   ...ps5,
-//   ...ps6,
-//   ...ps6a,
-//   ...cornerRegion,
-// ];
 
 setup();
