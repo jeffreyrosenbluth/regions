@@ -3,13 +3,17 @@ import { StudentTDistribution } from "./studentt";
 
 export type Region = {
   visible: boolean;
-  bottomLeft: { x: number; y: number };
-  size: { x: number; y: number };
+  //   bottomLeft: { x: number; y: number };
+  blx: number;
+  bly: number;
+  sizew: number;
+  sizeh: number;
   domain: string;
   radius: number;
   count: number;
   posFn: string;
-  direction: { x: number; y: number };
+  dirx: number;
+  diry: number;
   color: string;
 };
 
@@ -26,7 +30,7 @@ const cosPosFnXY = (p: Vec) =>
 
 const tDist = new StudentTDistribution(1.25);
 const studenttPosFn = (p: Vec) =>
-  p.add(new Vec(0.75 * tDist.sample(), 0.75 * tDist.sample()));
+  p.add(new Vec(tDist.sample(), tDist.sample()));
 
 function dirPosFn(x: number, y: number) {
   let dir = new Vec(x, y);
@@ -34,7 +38,7 @@ function dirPosFn(x: number, y: number) {
 }
 // -----------------------------------------------------------------------------------
 
-export const direction = (posFn: string, dir: { x: number; y: number }) => {
+export const direction = (posFn: string, x: number, y: number) => {
   switch (posFn) {
     case "still":
       return stillPosFn;
@@ -49,7 +53,7 @@ export const direction = (posFn: string, dir: { x: number; y: number }) => {
     case "cosXY":
       return cosPosFnXY;
     case "direction":
-      return dirPosFn(dir.x, dir.y);
+      return dirPosFn(x, y);
     default:
       return stillPosFn;
   }

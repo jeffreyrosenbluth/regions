@@ -34,18 +34,21 @@ function setup() {
   });
 
   if (pane.element) {
-    pane.element.style.width = "270px"; // Set your desired width here
+    pane.element.style.width = "280px"; // Set your desired width here
   }
 
   const CONTROLS: Region = {
     visible: false,
-    bottomLeft: { x: 0, y: 0 },
-    size: { x: canvasSize.x / 4, y: canvasSize.y / 4 },
+    blx: 0,
+    bly: 0,
+    sizew: canvasSize.x / 4,
+    sizeh: canvasSize.y / 4,
     domain: "constrained",
     radius: 1,
     count: 1000,
     posFn: "simple",
-    direction: { x: 1, y: 0 },
+    dirx: 1,
+    diry: 0,
     color: "#FFFFFFFF",
   };
 
@@ -55,41 +58,49 @@ function setup() {
     .fill(null)
     .map((_, index) => ({
       ...CONTROLS,
-      bottomLeft: {
-        x: (canvasSize.x / 4) * (index % 4),
-        y: (canvasSize.y / 4) * Math.floor(1 + index / 4),
-      },
-      size: { ...CONTROLS.size },
+      blx: (canvasSize.x / 4) * (index % 4),
+      bly: (canvasSize.y / 4) * Math.floor(1 + index / 4),
       posFn: dirs[index % dirs.length],
-      direction: { ...CONTROLS.direction },
+      dirx: 1,
+      diry: 0,
     }));
 
   folders.unshift({
     ...CONTROLS,
-    bottomLeft: { x: 0, y: window.innerHeight },
-    size: { x: window.innerWidth, y: window.innerHeight },
+    blx: 0,
+    bly: window.innerHeight,
+    sizew: window.innerWidth,
+    sizeh: window.innerHeight,
     posFn: "still",
     radius: 1.5,
   });
 
   folders.forEach((folderControls, i) => {
     let f = pane.addFolder({
-      title: `Region ${i}`,
+      title: i === 0 ? "Background" : `Region ${i}`,
       expanded: false,
     });
 
     f.addBinding(folderControls, "visible", { label: "Visible" });
-    f.addBinding(folderControls, "bottomLeft", {
-      label: "Bottom Left",
-      picker: "inline",
-      x: { min: 0, max: window.innerWidth },
-      y: { min: 0, max: window.innerHeight },
+    f.addBinding(folderControls, "blx", {
+      label: "Bottom Left X",
+      min: 0,
+      max: window.innerWidth,
     });
-    f.addBinding(folderControls, "size", {
-      label: "Size",
-      picker: "inline",
-      x: { min: 0, max: window.innerWidth },
-      y: { min: 0, max: window.innerHeight },
+    f.addBinding(folderControls, "bly", {
+      label: "Bottom Left Y",
+      min: 0,
+      max: window.innerWidth,
+    });
+    f.addBinding(folderControls, "sizew", {
+      label: "Width",
+      min: 0,
+      max: window.innerWidth,
+    });
+    f.addBinding(folderControls, "sizeh", {
+      label: "Height",
+      min: 0,
+      max: window.innerHeight,
     });
     f.addBinding(folderControls, "domain", {
       label: "Domain",
@@ -100,6 +111,7 @@ function setup() {
     });
     f.addBinding(folderControls, "radius", {
       label: "Radius",
+      step: 0.5,
       min: 0,
       max: 10,
     });
@@ -121,11 +133,15 @@ function setup() {
         Direction: "direction",
       },
     });
-    f.addBinding(folderControls, "direction", {
-      label: "Direction",
-      picker: "inline",
-      x: { min: -5, max: 5 },
-      y: { min: -5, max: 5 },
+    f.addBinding(folderControls, "dirx", {
+      label: "Direction X",
+      min: -5,
+      max: 5,
+    });
+    f.addBinding(folderControls, "diry", {
+      label: "Direction Y",
+      min: -5,
+      max: 5,
     });
     f.addBinding(folderControls, "color", { label: "Color", picker: "inline" });
   });
@@ -134,12 +150,14 @@ function setup() {
 
   document.body.appendChild(canvas);
 
-  pane.on("change", () => {
-    if (id) cancelAnimationFrame(id);
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
-    let ps = folders.flatMap((f) => particleBox(f, canvasSize));
-    draw(ps, ctx, canvasSize);
+  pane.on("change", (ev) => {
+    if (ev.last) {
+      if (id) cancelAnimationFrame(id);
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
+      let ps = folders.flatMap((f) => particleBox(f, canvasSize));
+      draw(ps, ctx, canvasSize);
+    }
   });
 
   document.addEventListener("keydown", (event) => {
@@ -222,7 +240,6 @@ class Particle {
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    // if (!ctx) return;
     ctx.beginPath();
     ctx.fillStyle = this.color;
     ctx.ellipse(
@@ -242,8 +259,8 @@ function particleBox(r: Region, canvasSize: Vec): Particle[] {
   if (!r.visible) return [];
   let particles: Particle[] = [];
   for (let i = 0; i < r.count; i++) {
-    const bl = new Vec(r.bottomLeft.x, r.bottomLeft.y);
-    const tr = new Vec(r.bottomLeft.x + r.size.x, r.bottomLeft.y - r.size.y);
+    const bl = new Vec(r.blx, r.bly);
+    const tr = new Vec(r.blx + r.sizew, r.bly - r.sizeh);
     particles.push(
       new Particle(
         r.radius,
@@ -252,7 +269,7 @@ function particleBox(r: Region, canvasSize: Vec): Particle[] {
         tr,
         r.domain === "free" ? new Vec(0, canvasSize.y) : bl,
         r.domain === "free" ? new Vec(canvasSize.x, 0) : tr,
-        direction(r.posFn, r.direction)
+        direction(r.posFn, r.dirx, r.diry)
       )
     );
   }
@@ -264,7 +281,7 @@ function draw(
   ctx: CanvasRenderingContext2D,
   canvasSize: Vec
 ) {
-  ctx.fillStyle = "#00000013";
+  ctx.fillStyle = "#00000009";
   ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
 
   for (let p of particles) {
