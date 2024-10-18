@@ -41,23 +41,3 @@ export class StudentTDistribution {
     return Array.from({ length: count }, () => this.sample());
   }
 }
-
-// Usage example
-const tDist = new StudentTDistribution(5); // 5 degrees of freedom
-console.log("Single sample:", tDist.sample());
-console.log("Multiple samples:", tDist.sampleMany(5));
-
-// Basic statistical analysis of samples
-function analyzeDistribution(samples: number[]): void {
-  const mean = samples.reduce((sum, value) => sum + value, 0) / samples.length;
-  const variance =
-    samples.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) /
-    samples.length;
-  const stdDev = Math.sqrt(variance);
-
-  console.log(`Mean: ${mean}`);
-  console.log(`Standard Deviation: ${stdDev}`);
-}
-
-const largeSample = tDist.sampleMany(10000);
-analyzeDistribution(largeSample);
