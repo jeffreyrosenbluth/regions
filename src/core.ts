@@ -1,7 +1,7 @@
 import { Vec } from "./vec";
 import { StudentTDistribution } from "./studentt";
 
-export type Region = {
+export type RegionSettings = {
   visible: boolean;
   blx: number;
   bly: number;
@@ -57,7 +57,7 @@ export const direction = (posFn: string, x: number, y: number) => {
   }
 };
 
-export class Particle {
+export class Region {
   public radius: number;
   public color: string;
   public bottomLeft: Vec;
@@ -66,7 +66,8 @@ export class Particle {
   public domainTR: Vec;
   public width: number;
   public height: number;
-  public pos: Vec;
+  public count: number;
+  public positions: Vec[];
   public posFn: (p: Vec) => Vec;
 
   constructor(
@@ -76,6 +77,7 @@ export class Particle {
     topRight: Vec,
     domainBL: Vec,
     domainTR: Vec,
+    count: number,
     posFn: (p: Vec) => Vec
   ) {
     this.radius = radius;
@@ -86,49 +88,56 @@ export class Particle {
     this.domainTR = domainTR;
     this.width = topRight.x - bottomLeft.x;
     this.height = -topRight.y + bottomLeft.y;
-    this.pos = new Vec(
-      bottomLeft.x + this.width * Math.random(),
-      topRight.y + this.height * Math.random()
+    this.count = count;
+    this.positions = Array.from(
+      { length: count },
+      () =>
+        new Vec(
+          bottomLeft.x + this.width * Math.random(),
+          topRight.y + this.height * Math.random()
+        )
     );
     this.posFn = posFn;
   }
 
+  static emptyRegion(): Region {
+    return new Region(
+      0,
+      "black",
+      new Vec(0, 0),
+      new Vec(0, 0),
+      new Vec(0, 0),
+      new Vec(0, 0),
+      0,
+      simplePosFn
+    );
+  }
+
   update() {
-    this.pos = this.posFn(this.pos);
-    if (this.pos.x < this.domainBL.x + this.radius) {
-      this.pos.x = this.domainTR.x - this.radius;
-    }
-    if (this.pos.x > this.domainTR.x - this.radius) {
-      this.pos.x = this.domainBL.x + this.radius;
-    }
-    if (this.pos.y > this.domainBL.y - this.radius) {
-      this.pos.y = this.domainTR.y + this.radius;
-    }
-    if (this.pos.y < this.domainTR.y + this.radius) {
-      this.pos.y = this.domainBL.y - this.radius;
-    }
+    this.positions.forEach((pos, index) => {
+      this.positions[index] = this.posFn(pos);
+
+      if (this.positions[index].x < this.domainBL.x + this.radius) {
+        this.positions[index].x = this.domainTR.x - this.radius;
+      }
+      if (this.positions[index].x > this.domainTR.x - this.radius) {
+        this.positions[index].x = this.domainBL.x + this.radius;
+      }
+      if (this.positions[index].y > this.domainBL.y - this.radius) {
+        this.positions[index].y = this.domainTR.y + this.radius;
+      }
+      if (this.positions[index].y < this.domainTR.y + this.radius) {
+        this.positions[index].y = this.domainBL.y - this.radius;
+      }
+    });
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    ctx.beginPath();
-    ctx.fillStyle = this.color;
-    ctx.ellipse(
-      this.pos.x,
-      this.pos.y,
-      this.radius,
-      this.radius,
-      0,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
+    for (let pos of this.positions) {
+      ctx.beginPath();
+      ctx.fillStyle = this.color;
+      ctx.ellipse(pos.x, pos.y, this.radius, this.radius, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
-
-export type ParticleBox = {
-  particles: Particle[];
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};

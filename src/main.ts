@@ -1,6 +1,6 @@
 import "./style.css";
 import { Vec } from "./vec";
-import { Particle, ParticleBox, Region, direction } from "./core";
+import { Region, RegionSettings, direction } from "./core";
 import { Pane } from "tweakpane";
 
 let id: number | undefined;
@@ -37,10 +37,10 @@ function setup() {
   });
 
   if (pane.element) {
-    pane.element.style.width = "280px"; // Set your desired width here
+    pane.element.style.width = "280px";
   }
 
-  const CONTROLS: Region = {
+  const CONTROLS: RegionSettings = {
     visible: false,
     blx: 0,
     bly: 0,
@@ -57,7 +57,7 @@ function setup() {
 
   const dirs = ["simple", "cosY", "studentt", "cosX", "direction", "cosXY"];
 
-  let folders: Region[] = Array(16)
+  let folders: RegionSettings[] = Array(16)
     .fill(null)
     .map((_, index) => ({
       ...CONTROLS,
@@ -87,21 +87,25 @@ function setup() {
     f.addBinding(folderControls, "visible", { label: "Visible" });
     f.addBinding(folderControls, "blx", {
       label: "Bottom Left X",
+      step: 1,
       min: 0,
       max: canvasSize.x,
     });
     f.addBinding(folderControls, "bly", {
       label: "Bottom Left Y",
+      step: 1,
       min: 0,
       max: canvasSize.y,
     });
     f.addBinding(folderControls, "sizew", {
       label: "Width",
+      step: 1,
       min: 0,
       max: canvasSize.x,
     });
     f.addBinding(folderControls, "sizeh", {
       label: "Height",
+      step: 1,
       min: 0,
       max: canvasSize.y,
     });
@@ -138,11 +142,13 @@ function setup() {
     });
     f.addBinding(folderControls, "dirx", {
       label: "Direction X",
+      step: 0.1,
       min: -5,
       max: 5,
     });
     f.addBinding(folderControls, "diry", {
       label: "Direction Y",
+      step: 0.1,
       min: -5,
       max: 5,
     });
@@ -157,7 +163,7 @@ function setup() {
     if (id) cancelAnimationFrame(id);
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
-    let ps = folders.map((f) => particleBox(f, canvasSize));
+    let ps = folders.map((f) => region(f, canvasSize));
     draw(ps, ctx, canvasSize, debug);
   };
 
@@ -174,14 +180,48 @@ function setup() {
     } else if (event.key === "c") {
       toggleGuiVisibility();
     } else if (event.key === "-") {
-      shrinkAllRegions();
+      resizeAllRegions();
+      reDraw();
+    } else if (event.key === "=") {
+      resizeAllRegions(true);
+      reDraw();
+    } else if (event.key === "ArrowRight") {
+      moveAllRegions(5, 0);
+      reDraw();
+    } else if (event.key === "ArrowLeft") {
+      moveAllRegions(-5, 0);
+      reDraw();
+    } else if (event.key === "ArrowUp") {
+      moveAllRegions(0, -5);
+      reDraw();
+    } else if (event.key === "ArrowDown") {
+      moveAllRegions(0, 5);
+      reDraw();
     } else if (event.key === "d") {
       debug = !debug;
       reDraw();
     }
   });
 
-  function shrinkAllRegions() {}
+  function resizeAllRegions(expand = false) {
+    const w = expand ? 5 : -5;
+    const h = expand ? 5 : -5;
+    folders.forEach((folder) => {
+      if (folder.visible) {
+        folder.sizew = folder.sizew + w;
+        folder.sizeh = folder.sizeh + h;
+      }
+    });
+  }
+
+  function moveAllRegions(right: number, up: number) {
+    folders.forEach((folder) => {
+      if (folder.visible) {
+        folder.blx = folder.blx + right;
+        folder.bly = folder.bly + up;
+      }
+    });
+  }
 
   function toggleAllFoldersVisible(visible: boolean) {
     folders.forEach((folder) => {
@@ -201,35 +241,26 @@ function setup() {
   window.addEventListener("resize", () => resizeCanvas());
 }
 
-function particleBox(r: Region, canvasSize: Vec): ParticleBox {
-  if (!r.visible) return { particles: [], x: 0, y: 0, width: 0, height: 0 };
-  let particles: Particle[] = [];
+function region(r: RegionSettings, canvasSize: Vec): Region {
+  if (!r.visible) return Region.emptyRegion();
   const bl = new Vec(r.blx, r.bly);
   const tr = new Vec(r.blx + r.sizew, r.bly - r.sizeh);
-  for (let i = 0; i < r.count; i++) {
-    particles.push(
-      new Particle(
-        r.radius,
-        r.color,
-        bl,
-        tr,
-        r.domain === "free" ? new Vec(0, canvasSize.y) : bl,
-        r.domain === "free" ? new Vec(canvasSize.x, 0) : tr,
-        direction(r.posFn, r.dirx, r.diry)
-      )
-    );
-  }
-  return {
-    particles: particles,
-    x: bl.x,
-    y: bl.y,
-    width: r.sizew,
-    height: r.sizeh,
-  };
+  const blDomain = r.domain === "free" ? new Vec(0, canvasSize.y) : bl;
+  const trDomain = r.domain === "free" ? new Vec(canvasSize.x, 0) : tr;
+  return new Region(
+    r.radius,
+    r.color,
+    bl,
+    tr,
+    blDomain,
+    trDomain,
+    r.count,
+    direction(r.posFn, r.dirx, r.diry)
+  );
 }
 
 function draw(
-  particles: ParticleBox[],
+  regions: Region[],
   ctx: CanvasRenderingContext2D,
   canvasSize: Vec,
   debug: boolean
@@ -237,23 +268,21 @@ function draw(
   ctx.fillStyle = "#00000009";
   ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
 
-  for (let particleBox of particles) {
+  for (let region of regions) {
     if (debug) {
       ctx.strokeStyle = "red";
       ctx.strokeRect(
-        particleBox.x,
-        particleBox.y - particleBox.height,
-        particleBox.width,
-        particleBox.height
+        region.bottomLeft.x,
+        region.bottomLeft.y - region.height,
+        region.width,
+        region.height
       );
     }
-    for (let p of particleBox.particles) {
-      p.update();
-      p.draw(ctx);
-    }
+    region.update();
+    region.draw(ctx);
   }
   id = window.requestAnimationFrame(() =>
-    draw(particles, ctx, canvasSize, debug)
+    draw(regions, ctx, canvasSize, debug)
   );
 }
 
