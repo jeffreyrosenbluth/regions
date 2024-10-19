@@ -3,7 +3,6 @@ import { StudentTDistribution } from "./studentt";
 
 export type Region = {
   visible: boolean;
-  //   bottomLeft: { x: number; y: number };
   blx: number;
   bly: number;
   sizew: number;
@@ -17,7 +16,7 @@ export type Region = {
   color: string;
 };
 
-// Particle position functions -------------------------------------------------------
+// Particle position functions -------------------------------------------------
 const simplePosFn = (p: Vec) =>
   p.add(new Vec(3 * (0.5 - Math.random()), 3 * (0.5 - Math.random())));
 
@@ -36,7 +35,6 @@ function dirPosFn(x: number, y: number) {
   let dir = new Vec(x, y);
   return (p: Vec) => p.add(dir);
 }
-// -----------------------------------------------------------------------------------
 
 export const direction = (posFn: string, x: number, y: number) => {
   switch (posFn) {
@@ -57,4 +55,80 @@ export const direction = (posFn: string, x: number, y: number) => {
     default:
       return stillPosFn;
   }
+};
+
+export class Particle {
+  public radius: number;
+  public color: string;
+  public bottomLeft: Vec;
+  public topRight: Vec;
+  public domainBL: Vec;
+  public domainTR: Vec;
+  public width: number;
+  public height: number;
+  public pos: Vec;
+  public posFn: (p: Vec) => Vec;
+
+  constructor(
+    radius: number,
+    color: string,
+    bottomLeft: Vec,
+    topRight: Vec,
+    domainBL: Vec,
+    domainTR: Vec,
+    posFn: (p: Vec) => Vec
+  ) {
+    this.radius = radius;
+    this.color = color;
+    this.bottomLeft = bottomLeft;
+    this.topRight = topRight;
+    this.domainBL = domainBL;
+    this.domainTR = domainTR;
+    this.width = topRight.x - bottomLeft.x;
+    this.height = -topRight.y + bottomLeft.y;
+    this.pos = new Vec(
+      bottomLeft.x + this.width * Math.random(),
+      topRight.y + this.height * Math.random()
+    );
+    this.posFn = posFn;
+  }
+
+  update() {
+    this.pos = this.posFn(this.pos);
+    if (this.pos.x < this.domainBL.x + this.radius) {
+      this.pos.x = this.domainTR.x - this.radius;
+    }
+    if (this.pos.x > this.domainTR.x - this.radius) {
+      this.pos.x = this.domainBL.x + this.radius;
+    }
+    if (this.pos.y > this.domainBL.y - this.radius) {
+      this.pos.y = this.domainTR.y + this.radius;
+    }
+    if (this.pos.y < this.domainTR.y + this.radius) {
+      this.pos.y = this.domainBL.y - this.radius;
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    ctx.beginPath();
+    ctx.fillStyle = this.color;
+    ctx.ellipse(
+      this.pos.x,
+      this.pos.y,
+      this.radius,
+      this.radius,
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+}
+
+export type ParticleBox = {
+  particles: Particle[];
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 };

@@ -1,6 +1,6 @@
 import "./style.css";
 import { Vec } from "./vec";
-import { Region, direction } from "./core";
+import { Particle, ParticleBox, Region, direction } from "./core";
 import { Pane } from "tweakpane";
 
 let id: number | undefined;
@@ -25,7 +25,10 @@ function setup() {
     if (ctx) ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     return new Vec(windowWidth, windowHeight);
   }
+
   const canvasSize = resizeCanvas();
+  let debug = false;
+
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
   const pane = new Pane({
@@ -68,9 +71,9 @@ function setup() {
   folders.unshift({
     ...CONTROLS,
     blx: 0,
-    bly: window.innerHeight,
-    sizew: window.innerWidth,
-    sizeh: window.innerHeight,
+    bly: canvasSize.y,
+    sizew: canvasSize.x,
+    sizeh: canvasSize.y,
     posFn: "still",
     radius: 1.5,
   });
@@ -85,22 +88,22 @@ function setup() {
     f.addBinding(folderControls, "blx", {
       label: "Bottom Left X",
       min: 0,
-      max: window.innerWidth,
+      max: canvasSize.x,
     });
     f.addBinding(folderControls, "bly", {
       label: "Bottom Left Y",
       min: 0,
-      max: window.innerWidth,
+      max: canvasSize.y,
     });
     f.addBinding(folderControls, "sizew", {
       label: "Width",
       min: 0,
-      max: window.innerWidth,
+      max: canvasSize.x,
     });
     f.addBinding(folderControls, "sizeh", {
       label: "Height",
       min: 0,
-      max: window.innerHeight,
+      max: canvasSize.y,
     });
     f.addBinding(folderControls, "domain", {
       label: "Domain",
@@ -150,13 +153,17 @@ function setup() {
 
   document.body.appendChild(canvas);
 
+  const reDraw = () => {
+    if (id) cancelAnimationFrame(id);
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
+    let ps = folders.map((f) => particleBox(f, canvasSize));
+    draw(ps, ctx, canvasSize, debug);
+  };
+
   pane.on("change", (ev) => {
     if (ev.last) {
-      if (id) cancelAnimationFrame(id);
-      ctx.fillStyle = "black";
-      ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
-      let ps = folders.flatMap((f) => particleBox(f, canvasSize));
-      draw(ps, ctx, canvasSize);
+      reDraw();
     }
   });
 
@@ -166,8 +173,15 @@ function setup() {
       toggleAllFoldersVisible(!allVisible); // Toggle based on current state
     } else if (event.key === "c") {
       toggleGuiVisibility();
+    } else if (event.key === "-") {
+      shrinkAllRegions();
+    } else if (event.key === "d") {
+      debug = !debug;
+      reDraw();
     }
   });
+
+  function shrinkAllRegions() {}
 
   function toggleAllFoldersVisible(visible: boolean) {
     folders.forEach((folder) => {
@@ -187,80 +201,12 @@ function setup() {
   window.addEventListener("resize", () => resizeCanvas());
 }
 
-class Particle {
-  public radius: number;
-  public color: string;
-  public bottomLeft: Vec;
-  public topRight: Vec;
-  public domainBL: Vec;
-  public domainTR: Vec;
-  public width: number;
-  public height: number;
-  public pos: Vec;
-  public posFn: (p: Vec) => Vec;
-
-  constructor(
-    radius: number,
-    color: string,
-    bottomLeft: Vec,
-    topRight: Vec,
-    domainBL: Vec,
-    domainTR: Vec,
-    posFn: (p: Vec) => Vec
-  ) {
-    this.radius = radius;
-    this.color = color;
-    this.bottomLeft = bottomLeft;
-    this.topRight = topRight;
-    this.domainBL = domainBL;
-    this.domainTR = domainTR;
-    this.width = topRight.x - bottomLeft.x;
-    this.height = -topRight.y + bottomLeft.y;
-    this.pos = new Vec(
-      bottomLeft.x + this.width * Math.random(),
-      topRight.y + this.height * Math.random()
-    );
-    this.posFn = posFn;
-  }
-
-  update() {
-    this.pos = this.posFn(this.pos);
-    if (this.pos.x < this.domainBL.x + this.radius) {
-      this.pos.x = this.domainTR.x - this.radius;
-    }
-    if (this.pos.x > this.domainTR.x - this.radius) {
-      this.pos.x = this.domainBL.x + this.radius;
-    }
-    if (this.pos.y > this.domainBL.y - this.radius) {
-      this.pos.y = this.domainTR.y + this.radius;
-    }
-    if (this.pos.y < this.domainTR.y + this.radius) {
-      this.pos.y = this.domainBL.y - this.radius;
-    }
-  }
-
-  draw(ctx: CanvasRenderingContext2D) {
-    ctx.beginPath();
-    ctx.fillStyle = this.color;
-    ctx.ellipse(
-      this.pos.x,
-      this.pos.y,
-      this.radius,
-      this.radius,
-      0,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
-  }
-}
-
-function particleBox(r: Region, canvasSize: Vec): Particle[] {
-  if (!r.visible) return [];
+function particleBox(r: Region, canvasSize: Vec): ParticleBox {
+  if (!r.visible) return { particles: [], x: 0, y: 0, width: 0, height: 0 };
   let particles: Particle[] = [];
+  const bl = new Vec(r.blx, r.bly);
+  const tr = new Vec(r.blx + r.sizew, r.bly - r.sizeh);
   for (let i = 0; i < r.count; i++) {
-    const bl = new Vec(r.blx, r.bly);
-    const tr = new Vec(r.blx + r.sizew, r.bly - r.sizeh);
     particles.push(
       new Particle(
         r.radius,
@@ -273,22 +219,42 @@ function particleBox(r: Region, canvasSize: Vec): Particle[] {
       )
     );
   }
-  return particles;
+  return {
+    particles: particles,
+    x: bl.x,
+    y: bl.y,
+    width: r.sizew,
+    height: r.sizeh,
+  };
 }
 
 function draw(
-  particles: Particle[],
+  particles: ParticleBox[],
   ctx: CanvasRenderingContext2D,
-  canvasSize: Vec
+  canvasSize: Vec,
+  debug: boolean
 ) {
   ctx.fillStyle = "#00000009";
   ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
 
-  for (let p of particles) {
-    p.update();
-    p.draw(ctx);
+  for (let particleBox of particles) {
+    if (debug) {
+      ctx.strokeStyle = "red";
+      ctx.strokeRect(
+        particleBox.x,
+        particleBox.y - particleBox.height,
+        particleBox.width,
+        particleBox.height
+      );
+    }
+    for (let p of particleBox.particles) {
+      p.update();
+      p.draw(ctx);
+    }
   }
-  id = window.requestAnimationFrame(() => draw(particles, ctx, canvasSize));
+  id = window.requestAnimationFrame(() =>
+    draw(particles, ctx, canvasSize, debug)
+  );
 }
 
 setup();
