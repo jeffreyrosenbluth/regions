@@ -29,16 +29,14 @@ function setup() {
   const canvasSize = resizeCanvas();
   let debug = false;
 
+  document.body.appendChild(canvas);
+
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
   const pane = new Pane({
     container: document.getElementById("container") || undefined,
     title: "Controls",
   });
-
-  if (pane.element) {
-    pane.element.style.width = "280px";
-  }
 
   const CONTROLS: RegionSettings = {
     visible: false,
@@ -55,7 +53,15 @@ function setup() {
     color: "#FFFFFFFF",
   };
 
-  const dirs = ["simple", "cosY", "studentt", "cosX", "direction", "cosXY"];
+  const dirs = [
+    "simple",
+    "cosY",
+    "studentt",
+    "cosX",
+    "direction",
+    "cosXY",
+    "simplex",
+  ];
 
   let folders: RegionSettings[] = Array(16)
     .fill(null)
@@ -138,6 +144,7 @@ function setup() {
         CosX: "cosX",
         CosXY: "cosXY",
         Direction: "direction",
+        Simplex: "simplex",
       },
     });
     f.addBinding(folderControls, "dirx", {
@@ -156,8 +163,6 @@ function setup() {
   });
 
   toggleGuiVisibility();
-
-  document.body.appendChild(canvas);
 
   const reDraw = () => {
     if (id) cancelAnimationFrame(id);

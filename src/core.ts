@@ -1,5 +1,6 @@
 import { Vec } from "./vec";
 import { StudentTDistribution } from "./studentt";
+import { createNoise2D } from "./simplex";
 
 export type RegionSettings = {
   visible: boolean;
@@ -36,6 +37,43 @@ function dirPosFn(x: number, y: number) {
   return (p: Vec) => p.add(dir);
 }
 
+const noise = createNoise2D({ random_dec: Math.random });
+
+const simplexPosFn = (p: Vec) => {
+  const scale = 0.02;
+  const mag = 1.5;
+  const j = Math.random();
+  const jumpx = j < 0.1 ? 40 * (Math.random() - 0.5) : 0;
+  const jumpy = j < 0.1 ? 40 * (Math.random() - 0.5) : 0;
+  const noiseValX = jumpx + mag * noise(scale * p.x, scale * p.y);
+  const noiseValY =
+    jumpy + mag * noise(scale * p.x + 3.117, scale * p.y + 2.713);
+  return p.add(new Vec(noiseValX, noiseValY));
+};
+
+// const simplexPosFn1 = (p: Vec) => {
+//     angle += rotationSpeed;
+
+//     let x = p.x - width / 2;
+//     let y = p.y - height / 2;
+
+// Apply rotation to the coordinates
+//     let rotatedX = x * cos(angle) - y * sin(angle);
+//     let rotatedY = x * sin(angle) + y * cos(angle);
+
+// Get flow field direction from rotated Perlin noise space
+//     let noiseValue = noise(rotatedX * noiseScale, rotatedY * noiseScale);
+//     let flowAngle = noiseValue * TWO_PI * 4;
+
+//       // Update particle position
+//     particle.x += cos(flowAngle);
+//     particle.y += sin(flowAngle);
+
+//     // Wrap around edges
+//     particle.x = (particle.x + width) % width;
+//     particle.y = (particle.y + height) % height;
+// }
+
 export const direction = (posFn: string, x: number, y: number) => {
   switch (posFn) {
     case "still":
@@ -52,6 +90,8 @@ export const direction = (posFn: string, x: number, y: number) => {
       return cosPosFnXY;
     case "direction":
       return dirPosFn(x, y);
+    case "simplex":
+      return simplexPosFn;
     default:
       return stillPosFn;
   }
